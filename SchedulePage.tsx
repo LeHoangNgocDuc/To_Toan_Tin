@@ -42,6 +42,19 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
     fetchSchedule();
   }, [user.id]);
 
+  const handleCellClick = (day: number, period: number, currentItem?: ScheduleItem) => {
+    setNewEntry({
+      id: currentItem?.id, // Nếu có ID thì là chế độ Sửa
+      dayOfWeek: day,
+      period: period,
+      session: activeSession,
+      teacherId: user.id,
+      className: currentItem?.className || '',
+      subject: currentItem?.subject || user.assignedClasses?.[0]?.split(' ')[0] || user.subject
+    });
+    setShowAdjustModal(true);
+  };
+
   const handleSaveSchedule = async () => {
     if (!newEntry.className) {
       alert('Vui lòng chọn phân công lớp!');
@@ -50,7 +63,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
     setIsSyncing(true);
     const dataToSave = { 
       ...newEntry, 
-      id: `sch-${Date.now()}-${user.id}`,
+      id: newEntry.id || `sch-${Date.now()}-${user.id}`, // Giữ ID cũ nếu sửa, tạo mới nếu thêm
       teacherId: user.id
     };
     try {
@@ -60,11 +73,38 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ type: 'schedule', action: 'save', data: dataToSave })
       });
-      setSchedule(prev => [...prev.filter(s => !(s.dayOfWeek === dataToSave.dayOfWeek && s.period === dataToSave.period && s.session === dataToSave.session)), dataToSave as ScheduleItem]);
-      alert(`Đã lưu: Thứ ${newEntry.dayOfWeek} - Tiết ${newEntry.period} (${newEntry.className})`);
-      // Không đóng modal, cho phép nhập tiếp
+      
+      // Update local state: Remove old entry if exists (to avoid dups visually) and add new
+      setSchedule(prev => [
+        ...prev.filter(s => s.id !== dataToSave.id && !(s.dayOfWeek === dataToSave.dayOfWeek && s.period === dataToSave.period && s.session === dataToSave.session)), 
+        dataToSave as ScheduleItem
+      ]);
+      
+      setShowAdjustModal(false);
+      // alert(`Đã lưu: Thứ ${newEntry.dayOfWeek} - Tiết ${newEntry.period} (${newEntry.className})`);
     } catch (e) {
       alert('Lỗi khi lưu lịch dạy!');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDeleteSchedule = async () => {
+    if (!newEntry.id) return;
+    if (!window.confirm(`Xác nhận xóa: Thứ ${newEntry.dayOfWeek} - Tiết ${newEntry.period} (${newEntry.className})?`)) return;
+
+    setIsSyncing(true);
+    try {
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ type: 'schedule', action: 'delete', data: { id: newEntry.id } })
+      });
+      setSchedule(prev => prev.filter(s => s.id !== newEntry.id));
+      setShowAdjustModal(false);
+    } catch (e) {
+      alert('Lỗi xóa dữ liệu!');
     } finally {
       setIsSyncing(false);
     }
@@ -79,7 +119,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
   const periods = [1, 2, 3, 4, 5];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-800 uppercase tracking-tight italic">Thời khóa biểu chuyên môn</h1>
@@ -88,18 +128,13 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
              <button onClick={() => setActiveSession('Afternoon')} className={`text-[11px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${activeSession === 'Afternoon' ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/20' : 'text-slate-400 hover:bg-slate-100'}`}>Buổi Chiều</button>
           </div>
         </div>
-        <button 
-          onClick={() => {
-            setNewEntry({...newEntry, session: activeSession});
-            setShowAdjustModal(true);
-          }}
-          className="bg-slate-900 text-white px-6 py-4 rounded-3xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-slate-200 hover:scale-105 active:scale-95 transition-all"
-        >
-          Cập nhật lịch
-        </button>
+        <div className="text-[10px] text-slate-400 font-bold italic text-right hidden md:block">
+           Nhấn vào ô trống để thêm lịch<br/>
+           Nhấn vào ô có lịch để sửa/xóa
+        </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden">
+      <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden select-none">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
@@ -115,13 +150,21 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
                   {days.map(d => {
                     const item = schedule.find(s => s.dayOfWeek === d && s.period === p && s.session === activeSession);
                     return (
-                      <td key={d} className="p-2 border-r group min-w-[140px]">
+                      <td 
+                        key={d} 
+                        onClick={() => handleCellClick(d, p, item)}
+                        className="p-2 border-r group min-w-[140px] cursor-pointer hover:bg-slate-50 transition-colors relative"
+                      >
                         {item ? (
-                          <div className={`h-full w-full p-4 rounded-3xl border flex flex-col justify-center items-center text-center shadow-sm transition-all hover:scale-[1.02] ${activeSession === 'Morning' ? 'bg-blue-50 border-blue-100 text-blue-800' : 'bg-orange-50 border-orange-100 text-orange-800'}`}>
+                          <div className={`h-full w-full p-4 rounded-3xl border flex flex-col justify-center items-center text-center shadow-sm transition-all transform group-hover:scale-[1.02] ${activeSession === 'Morning' ? 'bg-blue-50 border-blue-100 text-blue-800' : 'bg-orange-50 border-orange-100 text-orange-800'}`}>
                             <div className="font-black text-lg break-words w-full">{item.className}</div>
                             <div className="text-[10px] font-black uppercase opacity-60 tracking-tighter mt-1">{item.subject}</div>
                           </div>
-                        ) : <div className="h-full w-full min-h-[6rem] border-2 border-dashed border-slate-100 rounded-3xl group-hover:border-slate-200 transition-colors" />}
+                        ) : (
+                          <div className="h-full w-full min-h-[6rem] border-2 border-dashed border-slate-100 rounded-3xl group-hover:border-slate-300 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                             <span className="text-2xl text-slate-300 font-black">+</span>
+                          </div>
+                        )}
                       </td>
                     );
                   })}
@@ -135,19 +178,21 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
       {showAdjustModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-[3.5rem] shadow-2xl max-w-lg w-full p-10 animate-in zoom-in duration-300">
-            <h3 className="text-xl font-black text-slate-800 mb-6 uppercase italic">Ghi nhận tiết dạy</h3>
+            <h3 className="text-xl font-black text-slate-800 mb-6 uppercase italic">
+              {newEntry.id ? 'Cập nhật tiết dạy' : 'Thêm tiết dạy mới'}
+            </h3>
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Buổi học</label>
-                  <select value={newEntry.session} onChange={e => setNewEntry({...newEntry, session: e.target.value as any})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold">
+                  <select disabled value={newEntry.session} className="w-full bg-slate-100 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-500 cursor-not-allowed">
                     <option value="Morning">Sáng</option>
                     <option value="Afternoon">Chiều</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Thứ</label>
-                  <select value={newEntry.dayOfWeek} onChange={e => setNewEntry({...newEntry, dayOfWeek: parseInt(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold">
+                  <select disabled value={newEntry.dayOfWeek} className="w-full bg-slate-100 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-500 cursor-not-allowed">
                     {[2,3,4,5,6,7].map(d => <option key={d} value={d}>Thứ {d}</option>)}
                   </select>
                 </div>
@@ -155,7 +200,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase mb-2">Tiết</label>
-                  <select value={newEntry.period} onChange={e => setNewEntry({...newEntry, period: parseInt(e.target.value)})} className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold">
+                  <select disabled value={newEntry.period} className="w-full bg-slate-100 border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-500 cursor-not-allowed">
                     {[1,2,3,4,5].map(p => <option key={p} value={p}>Tiết {p}</option>)}
                   </select>
                 </div>
@@ -164,9 +209,10 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
                   <select 
                     value={`${newEntry.subject} ${newEntry.className}`} 
                     onChange={e => handleAssignmentChange(e.target.value)} 
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-sm font-bold focus:border-blue-500 outline-none"
+                    autoFocus
                   >
-                    <option value="">-- Chọn phân công --</option>
+                    <option value="">-- Chọn lớp --</option>
                     {user.assignedClasses?.map(c => <option key={c} value={c}>{c}</option>)}
                     {user.isChuNhiem && <option value="HĐTN Chủ_nhiệm">HĐTN (Chủ nhiệm)</option>}
                   </select>
@@ -174,9 +220,20 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
               </div>
             </div>
             <div className="mt-8 flex gap-4">
-              <button onClick={() => setShowAdjustModal(false)} className="flex-1 font-black text-slate-400 uppercase tracking-widest">Đóng (Hoàn tất)</button>
-              <button disabled={isSyncing} onClick={handleSaveSchedule} className="flex-1 py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase shadow-xl tracking-widest">
-                {isSyncing ? 'Đang lưu...' : 'Lưu & Nhập tiếp'}
+              <button onClick={() => setShowAdjustModal(false)} className="flex-1 font-black text-slate-400 uppercase tracking-widest hover:text-slate-600">Hủy</button>
+              
+              {newEntry.id && (
+                <button 
+                  disabled={isSyncing} 
+                  onClick={handleDeleteSchedule} 
+                  className="px-6 py-5 bg-red-50 text-red-500 hover:bg-red-100 rounded-[2rem] font-black uppercase tracking-widest transition-all"
+                >
+                  Xóa
+                </button>
+              )}
+
+              <button disabled={isSyncing} onClick={handleSaveSchedule} className="flex-[2] py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase shadow-xl tracking-widest hover:bg-black transition-all">
+                {isSyncing ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
           </div>
