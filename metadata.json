@@ -1,0 +1,8 @@
+{
+  "name": "To chuyen mon Toan-Tin - THCS Trần Hưng Đạo",
+  "description": "Hệ thống quản lý chuyên sâu cho tổ chuyên môn Toán – Tin, bao gồm quản lý lịch dạy, thi đua, đề cương và báo cáo tự động.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
