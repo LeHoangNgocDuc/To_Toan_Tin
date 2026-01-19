@@ -7,7 +7,7 @@ interface AssignmentPageProps {
   users: User[];
   onApprove: (user: User) => void;
   onUpdateUser: (user: User) => void;
-  onDeleteUser: () => void;
+  onDeleteUser: (userId: string) => void;
   onRefresh: () => void;
 }
 
@@ -120,7 +120,10 @@ const AssignmentPage: React.FC<AssignmentPageProps> = ({ user, users, onApprove,
                      {u.assignedClasses?.map(c => <span key={c} className="px-2 py-0.5 bg-slate-100 rounded-md text-[8px] font-black text-slate-500 uppercase">{c}</span>)}
                    </div>
                 </div>
-                <button onClick={() => onApprove(u)} className="bg-orange-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all">Duyệt ngay</button>
+                <div className="flex gap-2">
+                  <button onClick={() => onApprove(u)} className="bg-orange-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all">Duyệt ngay</button>
+                  {isMainAdmin && <button onClick={() => onDeleteUser(u.id)} className="bg-red-50 text-red-500 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all">Xóa</button>}
+                </div>
               </div>
             ))}
           </div>
@@ -186,6 +189,12 @@ const AssignmentPage: React.FC<AssignmentPageProps> = ({ user, users, onApprove,
                                className="px-4 py-2 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white rounded-xl text-[9px] font-black uppercase transition-all shadow-sm"
                              >
                                Sửa
+                             </button>
+                             <button 
+                               onClick={() => onDeleteUser(u.id)}
+                               className="px-4 py-2 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded-xl text-[9px] font-black uppercase transition-all shadow-sm"
+                             >
+                               Xóa
                              </button>
                          </>
                        )}

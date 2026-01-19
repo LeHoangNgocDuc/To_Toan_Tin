@@ -137,11 +137,24 @@ const App: React.FC = () => {
     }
   };
 
-  const handleChangeRole = async (userId: string, newRole: UserRole) => {
-    const targetUser = users.find(u => u.id === userId);
-    if (!targetUser) return;
-    const updatedUser = { ...targetUser, role: newRole };
-    handleUpdateUser(updatedUser);
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa thành viên này? Hành động này không thể hoàn tác!')) return;
+
+    // Optimistic UI update
+    setUsers(prev => prev.filter(u => u.id !== userId));
+
+    try {
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ type: 'users', action: 'delete', data: { id: userId } })
+      });
+      alert('Đã xóa thành viên khỏi hệ thống.');
+    } catch (e) {
+      alert('Lỗi khi xóa dữ liệu!');
+      fetchData(); // Rollback if error
+    }
   };
 
   const checkClassConflict = (entry: string) => {
@@ -325,7 +338,7 @@ const App: React.FC = () => {
     <Layout user={currentUser} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => setCurrentUser(null)} currentYear={currentYear} setCurrentYear={setCurrentYear}>
       {activeTab === 'dashboard' && <Dashboard user={currentUser} year={currentYear} notifications={notifications} onRefresh={fetchData} onUpdateProfile={(u) => { setCurrentUser(u); fetchData(); }} />}
       {activeTab === 'schedule' && <SchedulePage user={currentUser} />}
-      {activeTab === 'assignment' && <AssignmentPage user={currentUser} users={users} onApprove={handleApproveUser} onUpdateUser={handleUpdateUser} onDeleteUser={fetchData} onRefresh={fetchData} />}
+      {activeTab === 'assignment' && <AssignmentPage user={currentUser} users={users} onApprove={handleApproveUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} onRefresh={fetchData} />}
       {activeTab === 'substitute' && <SubstitutePage user={currentUser} users={users} />}
       {activeTab === 'competition' && <CompetitionPage user={currentUser} users={users} />}
       {activeTab === 'demos' && <TeachingDemoPage user={currentUser} users={users} />}
