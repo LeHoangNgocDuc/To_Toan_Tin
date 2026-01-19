@@ -110,7 +110,7 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {periods.map(p => (
-                <tr key={p} className="h-32">
+                <tr key={p} className="h-auto min-h-[8rem]">
                   <td className="p-6 bg-slate-50/50 border-r text-center font-black text-slate-400 text-[10px]">Tiết {p}</td>
                   {days.map(d => {
                     const item = schedule.find(s => s.dayOfWeek === d && s.period === p && s.session === activeSession);
@@ -118,10 +118,10 @@ const SchedulePage: React.FC<SchedulePageProps> = ({ user }) => {
                       <td key={d} className="p-2 border-r group min-w-[140px]">
                         {item ? (
                           <div className={`h-full w-full p-4 rounded-3xl border flex flex-col justify-center items-center text-center shadow-sm transition-all hover:scale-[1.02] ${activeSession === 'Morning' ? 'bg-blue-50 border-blue-100 text-blue-800' : 'bg-orange-50 border-orange-100 text-orange-800'}`}>
-                            <div className="font-black text-lg">{item.className}</div>
-                            <div className="text-[10px] font-black uppercase opacity-60 tracking-tighter">{item.subject}</div>
+                            <div className="font-black text-lg break-words w-full">{item.className}</div>
+                            <div className="text-[10px] font-black uppercase opacity-60 tracking-tighter mt-1">{item.subject}</div>
                           </div>
-                        ) : <div className="h-full w-full border-2 border-dashed border-slate-100 rounded-3xl group-hover:border-slate-200 transition-colors" />}
+                        ) : <div className="h-full w-full min-h-[6rem] border-2 border-dashed border-slate-100 rounded-3xl group-hover:border-slate-200 transition-colors" />}
                       </td>
                     );
                   })}
