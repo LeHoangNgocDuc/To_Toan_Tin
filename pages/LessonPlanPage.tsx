@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { User, UserRole, LessonPlanReview } from '../types';
 import { SCRIPT_URL } from '../constants';
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, BorderStyle, TextRun, AlignmentType, HeadingLevel } from 'docx';
-import { saveAs } from 'file-saver';
+import FileSaver from 'file-saver';
 
 interface LessonPlanPageProps {
   user: User;
@@ -227,6 +227,8 @@ const LessonPlanPage: React.FC<LessonPlanPageProps> = ({ user, users }) => {
       });
 
       const blob = await Packer.toBlob(doc);
+      // Handle file-saver import issue by checking default export
+      const saveAs = (FileSaver as any).saveAs || FileSaver;
       saveAs(blob, `Nhan_xet_KHBD_${teacherName.replace(/\s/g, '_')}.docx`);
 
     } catch (error) {
